@@ -32,7 +32,7 @@ jobs:
       - name: Install GCC 13
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends software-properties-common
+          apt-get install -y --no-install-recommends software-properties-common gpg-agent dirmngr
           add-apt-repository -y ppa:ubuntu-toolchain-r/test
           apt-get update
           apt-get install -y --no-install-recommends g++-13 gcc-13
