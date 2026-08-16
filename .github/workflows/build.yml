@@ -26,10 +26,25 @@ jobs:
       - name: Fix git permissions
         run: git config --global --add safe.directory '*'
 
+      # The 22.04 image ships GCC 12, whose libstdc++ lacks std::expected::and_then
+      # (a C++23 monadic op an upstream Kick file uses). GCC 13 provides it. ABI
+      # stays compatible with the prebuilt Qt (same libstdc++ soname).
+      - name: Install GCC 13
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends software-properties-common
+          add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          apt-get update
+          apt-get install -y --no-install-recommends g++-13 gcc-13
+          g++-13 --version
+
       - name: Show version
         run: grep CHATTERINO_VERSION src/common/Version.hpp || true
 
       - name: Configure + build
+        env:
+          CC: gcc-13
+          CXX: g++-13
         run: |
           mkdir build
           cd build
