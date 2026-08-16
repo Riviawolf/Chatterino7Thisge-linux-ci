@@ -1,0 +1,65 @@
+# Builds the Linux artifacts (.deb + AppImage) for Chatterino7Thisge on GitHub's
+# free public-repo runners. This repo holds only this workflow; the actual source
+# lives in the private repo and is checked out into the disposable runner using a
+# read-only token (SOURCE_REPO_TOKEN), built, and thrown away with the runner.
+# Manual trigger only, so the token is never exposed to fork/PR events.
+name: Build Linux (deb + AppImage)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Ubuntu 22.04 (.deb + AppImage)
+    runs-on: ubuntu-latest
+    container: ghcr.io/chatterino/chatterino2-build-ubuntu-22.04:latest
+    steps:
+      - name: Checkout private source
+        uses: actions/checkout@v4
+        with:
+          repository: Riviawolf/Chatterino7Thisge
+          ref: thisge
+          token: ${{ secrets.SOURCE_REPO_TOKEN }}
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fix git permissions
+        run: git config --global --add safe.directory '*'
+
+      - name: Show version
+        run: grep CHATTERINO_VERSION src/common/Version.hpp || true
+
+      - name: Configure + build
+        run: |
+          mkdir build
+          cd build
+          CXXFLAGS=-fno-sized-deallocation cmake \
+            -DCMAKE_INSTALL_PREFIX=appdir/usr/ \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPAJLADA_SETTINGS_USE_BOOST_FILESYSTEM=On \
+            -DUSE_PRECOMPILED_HEADERS=OFF \
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR/lib/cmake" \
+            -DCHATTERINO_STATIC_QT_BUILD=On \
+            -DCHATTERINO_NIGHTLY_BUILD=Off \
+            -DCHATTERINO_PLUGINS=On \
+            ..
+          make -j"$(nproc)"
+
+      - name: Package - AppImage
+        run: |
+          cd build
+          sh ./../.CI/CreateAppImage.sh
+
+      - name: Package - .deb
+        run: |
+          cd build
+          sh ./../.CI/CreateUbuntuDeb.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chatterino7Thisge-linux
+          if-no-files-found: error
+          path: |
+            build/Chatterino7Thisge-x86_64.AppImage
+            build/Chatterino7Thisge-ubuntu-22.04-x86_64.deb
